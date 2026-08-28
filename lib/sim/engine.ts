@@ -106,7 +106,9 @@ export function runNowcast(input: EngineInput): NowcastResult {
       let demand = 0
       for (const id of cellIds) demand += Math.min(depth[id], DRAIN_CELL_MAX)
       const supply = effectiveCapacity(d) * DRAIN_SUPPLY_PER_MIN * interval
-      const util = supply > 0 ? (demand / supply) * 100 : 200
+      // Cap reported utilization at 400% — beyond that the drain is simply
+      // "fully overwhelmed" and larger ratios add no useful signal.
+      const util = Math.min(400, supply > 0 ? (demand / supply) * 100 : 400)
       const ratio = demand > 0 ? Math.min(1, supply / demand) : 0
       for (const id of cellIds) {
         const removable = Math.min(depth[id], DRAIN_CELL_MAX) * ratio
@@ -193,12 +195,15 @@ function computeHotspots(
     .map((c) => {
       const importance = c.isRoad ? (c.row % 5 === 2 || c.col % 6 === 3 ? 3 : 2) : 1
       const flowAccumNorm = c.flowAccum / maxAccum
+      // Depth dominates so the worst-flooded locations always surface as the
+      // top hotspots; duration, drainage stress, flow and road importance
+      // break ties between similarly-deep cells.
       const score =
-        cellMax[c.id] * 0.55 +
-        cellDurations[c.id] * 4 +
-        cellPeakUtil[c.id] * 0.08 +
-        flowAccumNorm * 14 +
-        importance * 4
+        cellMax[c.id] * 1.6 +
+        cellDurations[c.id] * 3 +
+        cellPeakUtil[c.id] * 0.05 +
+        flowAccumNorm * 6 +
+        importance * 3
       return { c, score }
     })
     .sort((a, b) => b.score - a.score)

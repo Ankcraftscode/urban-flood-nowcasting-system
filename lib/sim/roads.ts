@@ -59,6 +59,19 @@ export function buildRoads(city: City, cells: GridCell[]): RoadNetwork {
   return { nodes, edges, adj }
 }
 
+// Reconstruct a routable network (with adjacency) from plain nodes + edges.
+// Used on the client, where the Map-based adjacency can't cross the JSON boundary.
+export function rebuildNetwork(nodes: RoadNode[], edges: RoadEdge[]): RoadNetwork {
+  const adj = new Map<number, { edgeId: number; to: number }[]>()
+  for (const e of edges) {
+    if (!adj.has(e.from)) adj.set(e.from, [])
+    if (!adj.has(e.to)) adj.set(e.to, [])
+    adj.get(e.from)!.push({ edgeId: e.id, to: e.to })
+    adj.get(e.to)!.push({ edgeId: e.id, to: e.from })
+  }
+  return { nodes, edges, adj }
+}
+
 export function nearestRoadNode(network: RoadNetwork, lat: number, lng: number): number {
   let best = Infinity
   let bestId = network.nodes[0]?.id ?? -1
